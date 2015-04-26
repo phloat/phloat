@@ -147,7 +147,7 @@ class Flow
 	}
 
 	/**
-	 *
+	 * Starts the flow
 	 */
 	public function start()
 	{
