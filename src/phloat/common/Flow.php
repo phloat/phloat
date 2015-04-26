@@ -2,6 +2,7 @@
 
 namespace phloat\common;
 
+use phloat\events\PHPErrorOccurredEvent;
 use phloat\events\StartUpEvent;
 use phloat\events\ShutdownEvent;
 use phloat\events\ExceptionThrownEvent;
@@ -23,6 +24,19 @@ class Flow
 
 	protected $highestWeight = 0;
 	protected $weightIncrement = 10;
+
+	protected $errorHandler;
+
+	public function __construct()
+	{
+		$this->errorHandler = function($no, $message, $file, $line, array $context) {
+			// Respect suppressed errors
+			if(0 === error_reporting())
+				return;
+
+			$this->dispatch(new PHPErrorOccurredEvent($no, $message, $file, $line, $context));
+		};
+	}
 
 	protected function checkAndStoreAction($name, Action $action, $weight)
 	{
@@ -149,8 +163,12 @@ class Flow
 			return ($a['weight'] < $b['weight']) ? -1 : 1;
 		});
 
+		$oldErrorHandler = set_error_handler($this->errorHandler);
+
 		$this->dispatch(new StartUpEvent());
 		$this->stop();
+
+		set_error_handler($oldErrorHandler);
 	}
 
 	/**
