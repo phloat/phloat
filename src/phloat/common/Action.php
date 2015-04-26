@@ -8,5 +8,26 @@ namespace phloat\common;
  */
 abstract class Action
 {
-	abstract public function run();
+	protected $name;
+
+	/** @var Flow2 */
+	protected $flow;
+
+	/**
+	 * @return callable
+	 */
+	abstract public function getClosure();
+
+	public function setFlow(Flow2 $flow)
+	{
+		$this->flow = $flow;
+	}
+
+	/**
+	 * @param string $name
+	 */
+	public function setName($name)
+	{
+		$this->name = $name;
+	}
 }
