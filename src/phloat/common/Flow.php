@@ -2,103 +2,213 @@
 
 namespace phloat\common;
 
-use phloat\events\ExceptionThrownEvent;
-use phloat\events\ShutdownEvent;
 use phloat\events\StartUpEvent;
+use phloat\events\ShutdownEvent;
+use phloat\events\ExceptionThrownEvent;
+use phloat\exceptions\FlowException;
 
 /**
  * @author Pascal Muenst <dev@timesplinter.ch>
  * @copyright Copyright (c) 2015 by TiMESPLiNTER Webdevelopment
  */
-class Flow implements \ArrayAccess
+class Flow
 {
-	/** @var Action[] */
-	protected $actions = array();
-	protected $persistence = array();
-	protected $eventLog = array();
-	protected $booted = false;
+	protected $reactions = array();
+	protected $eventTree = array();
+	protected $started = false;
+	protected $stopped = false;
 
-	public function boot()
+	protected $executedActions = 0;
+	protected $dispatchedEvents = 0;
+
+	protected $highestWeight = 0;
+	protected $weightIncrement = 10;
+
+	protected function checkAndStoreAction($name, Action $action, $weight)
 	{
-		if($this->booted === true)
-			return;
+		$callable = $action->getClosure();
 
-		$this->booted = true;
+		$refFunc = new \ReflectionFunction($callable);
 
-		try {
-			$this->invokeEvent(new StartUpEvent());
-			$this->invokeEvent(new ShutdownEvent());
-		} catch(\Exception $e) {
-			$this->invokeEvent(new ExceptionThrownEvent($e));
+		if(count(($params = $refFunc->getParameters())) !== 1) {
+			throw new FlowException('Action ' . $name . ': The closure has to consume exactly one parameter');
 		}
+
+		$eventClass = $refFunc->getParameters()[0]->getClass();
+
+		if($eventClass->name !== Event::class && $eventClass->isSubclassOf(Event::class) === false)
+			throw new FlowException('Action ' . $name . ': The closure should consume a parameter of (sub-)type ' . Event::class . ' but does of type ' . $eventClass->name);
+
+		$action->setName($name);
+		$action->setFlow($this);
+
+		$this->reactions[$name] = array('event' => $eventClass->name, 'action' => $action, 'weight' => $weight);
+
+		if(isset($this->eventTree[$eventClass->name]) === false)
+			$this->eventTree[$eventClass->name] = $this->getParents($eventClass);
 	}
 
-	public function add(Action $action)
+	/**
+	 * @param string $name Name of the action
+	 * @param Action $action The actual action
+	 * @param int $weight
+	 *
+	 * @return Flow $this The current flow instance
+	 *
+	 * @throws FlowException
+	 */
+	public function addAction($name, Action $action, $weight = 0)
 	{
-		$this->actions[] = $action;
+		if(isset($this->reactions[$name]) === true)
+			throw new FlowException('Action with name ' . $name . ' does already exist in this flow');
 
-		$action->setFlow($this);
+		if($weight === 0) {
+			$weight = $this->highestWeight = $this->highestWeight + $this->weightIncrement;
+		}
+
+		$this->checkAndStoreAction($name, $action, $weight);
 
 		return $this;
 	}
 
-	public function invokeEvent(Event $event)
+	/**
+	 * Replaces and existing action with a new one
+	 *
+	 * @param string $name Name of the action to replace
+	 * @param Action $action The new action
+	 *
+	 * @return $this The current flow instance
+	 *
+	 * @throws FlowException
+	 */
+	public function replaceAction($name, Action $action)
 	{
-		$eventClassName = get_class($event);
-		$this->eventLog[$eventClassName][] = $event;
+		if(isset($this->reactions[$name]) === false)
+			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
 
-		$reactingActions = array();
+		$this->checkAndStoreAction($name, $action, $this->reactions[$name]['weight']);
 
-		foreach($this->actions as $action) {
-			if(($weight = $action->reactsTo($eventClassName)) === 0 && ($weight = $action->reactsTo(Event::ANY)) === 0)
-				continue;
+		return $this;
+	}
 
-			$reactingActions[] = array(
-				'action' => $action, 'weight' => $weight
-			);
-		}
+	/**
+	 * Removes an action from the flow
+	 *
+	 * @param string $name
+	 * @return $this The current flow instance
+	 * @throws FlowException
+	 */
+	public function removeAction($name)
+	{
+		if(isset($this->reactions[$name]) === false)
+			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
 
-		uasort($reactingActions, function($a, $b) {
+		unset($this->reactions[$name]);
+
+		return $this;
+	}
+
+	/**
+	 * Re-weight an existing action
+	 *
+	 * @param string $name
+	 * @param int $weight
+	 * @return $this The current flow instance
+	 * @throws FlowException
+	 */
+	public function reWeightAction($name, $weight)
+	{
+		if(isset($this->reactions[$name]) === false)
+			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
+
+		$this->reactions[$name]['weight'] = $weight;
+
+		return $this;
+	}
+
+	/**
+	 *
+	 */
+	public function start()
+	{
+		if($this->started === true)
+			return;
+
+		$this->started = true;
+
+		uasort($this->reactions, function($a, $b) {
 			if($a['weight'] === $b['weight'])
 				return 0;
 
 			return ($a['weight'] < $b['weight']) ? -1 : 1;
 		});
 
-		foreach($reactingActions as $action) {
-			$action['action']->run($event);
+		$this->dispatch(new StartUpEvent());
+		$this->stop();
+	}
+
+	/**
+	 * Dispatches a new event
+	 *
+	 * @param Event $event
+	 */
+	public function dispatch(Event $event)
+	{
+		++$this->dispatchedEvents;
+
+		if($this->stopped === true)
+			return;
+
+		$eventClasses = $this->eventTree[get_class($event)];
+
+		foreach($this->reactions as $reaction) {
+			if(in_array($reaction['event'], $eventClasses) === false)
+				continue;
+
+			try {
+				++$this->executedActions;
+				call_user_func($reaction['action']->getClosure(), $event);
+			} catch(\Exception $e) {
+				$this->dispatch(new ExceptionThrownEvent($e));
+			}
 		}
 	}
 
-	/**
-	 * {@inheritdoc}
-	 */
-	public function offsetExists($offset)
+	protected function getParents(\ReflectionClass $class)
 	{
-		return array_key_exists($offset, $this->persistence);
+		$parents = array($class->name);
+
+		if(($parentClass = $class->getParentClass()) === false)
+			return $parents;
+
+		$parents = array_merge($this->getParents($parentClass), $parents);
+
+		return $parents;
 	}
 
 	/**
-	 * {@inheritdoc}
+	 * Terminates the flow
 	 */
-	public function offsetGet($offset)
+	public function stop()
 	{
-		return $this->persistence[$offset];
+		$this->dispatch(new ShutdownEvent());
+
+		$this->stopped = true;
 	}
 
 	/**
-	 * {@inheritdoc}
+	 * @return int
 	 */
-	public function offsetSet($offset, $value)
+	public function getExecutedActions()
 	{
-		$this->persistence[$offset] = $value;
+		return $this->executedActions;
 	}
 
 	/**
-	 * {@inheritdoc}
+	 * @return int
 	 */
-	public function offsetUnset($offset)
+	public function getDispatchedEvents()
 	{
-		unset($this->persistence[$offset]);
+		return $this->dispatchedEvents;
 	}
 }

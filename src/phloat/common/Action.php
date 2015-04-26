@@ -10,7 +10,7 @@ abstract class Action
 {
 	protected $name;
 
-	/** @var Flow2 */
+	/** @var Flow */
 	protected $flow;
 
 	/**
@@ -18,7 +18,7 @@ abstract class Action
 	 */
 	abstract public function getClosure();
 
-	public function setFlow(Flow2 $flow)
+	public function setFlow(Flow $flow)
 	{
 		$this->flow = $flow;
 	}
