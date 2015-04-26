@@ -14,15 +14,20 @@ class RequestAction extends Action
 	/**
 	 * @return callable
 	 */
-	public function getClosure()
+	public function getRunClosure()
 	{
 		return function(StartUpEvent $event) {
-			echo 'try to create request' , PHP_EOL;
-
-			if(php_sapi_name() === 'cli')
-				throw new \Exception('Could not create request because this runs on CLI');
-
-			$this->flow->dispatch(new RequestCreationSucceededEvent());
+			$this->performAction($event);
 		};
+	}
+
+	protected function performAction(StartUpEvent $event)
+	{
+		echo 'try to create request' , PHP_EOL;
+
+		if(php_sapi_name() === 'cli')
+			throw new \Exception('Could not create request because this runs on CLI');
+
+		$this->flow->dispatch(new RequestCreationSucceededEvent());
 	}
 }

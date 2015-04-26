@@ -26,9 +26,15 @@ class Flow
 
 	protected function checkAndStoreAction($name, Action $action, $weight)
 	{
-		$callable = $action->getClosure();
+		$callable = $action->getRunClosure();
 
-		$refFunc = new \ReflectionFunction($callable);
+		if(is_object($callable) === true && $callable instanceof \Closure) {
+			$refFunc = new \ReflectionFunction($callable);
+		} elseif(is_array($callable) === true && is_callable($callable) === true) {
+			$refFunc = new \ReflectionMethod($callable[0], $callable[1]);
+		} else {
+			throw new FlowException('Action ' . $name . ': No valid callback');
+		}
 
 		if(count(($params = $refFunc->getParameters())) !== 1) {
 			throw new FlowException('Action ' . $name . ': The closure has to consume exactly one parameter');
@@ -167,7 +173,7 @@ class Flow
 
 			try {
 				++$this->executedActions;
-				call_user_func($reaction['action']->getClosure(), $event);
+				call_user_func($reaction['action']->getRunClosure(), $event);
 			} catch(\Exception $e) {
 				$this->dispatch(new ExceptionThrownEvent($e));
 			}

@@ -16,7 +16,7 @@ abstract class Action
 	/**
 	 * @return callable
 	 */
-	abstract public function getClosure();
+	abstract public function getRunClosure();
 
 	public function setFlow(Flow $flow)
 	{

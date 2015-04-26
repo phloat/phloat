@@ -3,26 +3,37 @@
 namespace phloat\actions\closure;
 
 use phloat\common\Action;
+use phloat\common\ConditionalAction;
 
 /**
  * @author Pascal Muenst <dev@timesplinter.ch>
  * @copyright Copyright (c) 2015 by TiMESPLiNTER Webdevelopment
  */
-class ClosureAction extends Action
+class ClosureAction extends Action implements ConditionalAction
 {
-	protected $closure;
+	protected $runClosure;
+	protected $conditionClosure;
 
-	public function __construct(callable $closure)
+	public function __construct(callable $runClosure, callable $conditionClosure = null)
 	{
-		$this->closure = $closure;
+		$this->runClosure = $runClosure;
+		$this->conditionClosure = $conditionClosure;
 	}
 
 
 	/**
-	 * @return callable
+	 * {@inheritdoc}
 	 */
-	public function getClosure()
+	public function getRunClosure()
 	{
-		return $this->closure;
+		return $this->runClosure;
+	}
+
+	/**
+	 * {@inheritdoc}
+	 */
+	public function getConditionClosure()
+	{
+		return $this->conditionClosure;
 	}
 }
