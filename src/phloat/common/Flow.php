@@ -222,8 +222,9 @@ class Flow
 
 		if($this->stopped === true)
 			return;
-
-		$eventClasses = $this->eventTree[get_class($event)];
+		
+		$eventClass = get_class($event);
+		$eventClasses = isset($this->eventTree[$eventClass]) ? $this->eventTree[$eventClass] : array();
 
 		foreach($this->reactions as $reaction) {
 			if(in_array($reaction['event'], $eventClasses) === false)
