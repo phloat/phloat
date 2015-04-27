@@ -12,11 +12,10 @@ use phloat\events\ExceptionThrownEvent;
  */
 class ExceptionAction extends Action
 {
-	public function run(Event $event)
+	public function getRunClosure()
 	{
-		if(!$event instanceof ExceptionThrownEvent)
-			return;
-
-		echo 'Flow terminated with exception "' . $event->getException()->getMessage() . '"', PHP_EOL;
+		return function(ExceptionThrownEvent $event) {
+			echo 'Flow terminated with exception "' . $event->getException()->getMessage() . '"', PHP_EOL;
+		};
 	}
 }
