@@ -11,7 +11,12 @@ class LogEntry
 	protected $logLevel;
 	protected $message;
 	protected $context;
-	
+
+	/**
+	 * @param string $logLevel
+	 * @param string $message
+	 * @param array $context
+	 */
 	public function __construct($logLevel, $message, array $context = array())
 	{
 		$this->logLevel = $logLevel;

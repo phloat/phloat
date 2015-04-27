@@ -66,8 +66,8 @@ class Flow
 			throw new FlowException('Action ' . $name . ': No valid callback');
 		}
 
-		if(count(($params = $refFunc->getParameters())) !== 1) {
-			throw new FlowException('Action ' . $name . ': The closure has to consume exactly one parameter');
+		if(($paramCount = count(($params = $refFunc->getParameters()))) !== 1) {
+			throw new FlowException('Action ' . $name . ': The closure has to consume exactly 1 parameter (' . $paramCount . ' given)');
 		}
 
 		$eventClass = $refFunc->getParameters()[0]->getClass();
