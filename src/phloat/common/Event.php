@@ -8,12 +8,5 @@ namespace phloat\common;
  */
 abstract class Event
 {
-	const ANY = '*';
 
-	protected $calls = 0;
-
-	public function increaseCalls()
-	{
-		++$this->calls;
-	}
 }
