@@ -9,17 +9,14 @@ use phloat\common\ConditionalAction;
  * @author Pascal Muenst <dev@timesplinter.ch>
  * @copyright Copyright (c) 2015 by TiMESPLiNTER Webdevelopment
  */
-class ClosureAction extends Action implements ConditionalAction
+class ClosureAction extends Action
 {
 	protected $runClosure;
-	protected $conditionClosure;
 
-	public function __construct(callable $runClosure, callable $conditionClosure = null)
+	public function __construct(callable $runClosure)
 	{
 		$this->runClosure = $runClosure;
-		$this->conditionClosure = $conditionClosure;
 	}
-
 
 	/**
 	 * {@inheritdoc}
@@ -27,13 +24,5 @@ class ClosureAction extends Action implements ConditionalAction
 	public function getRunClosure()
 	{
 		return $this->runClosure;
-	}
-
-	/**
-	 * {@inheritdoc}
-	 */
-	public function getConditionClosure()
-	{
-		return $this->conditionClosure;
 	}
 }

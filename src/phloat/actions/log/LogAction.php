@@ -3,7 +3,9 @@
 namespace phloat\actions\log;
 
 use phloat\common\Action;
-use phloat\common\Event;
+use phloat\exceptions\FlowException;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LogLevel;
 
 /**
  * @author Pascal Muenst <dev@timesplinter.ch>
@@ -11,8 +13,29 @@ use phloat\common\Event;
  */
 class LogAction extends Action
 {
-	public function run(Event $event)
+	protected $logger;
+	
+	public function __construct(AbstractLogger $logger)
 	{
-		echo 'Event invoked: ' , get_class($event) , PHP_EOL;
+		$this->logger = $logger;
+	}
+
+	/**
+	 * @return callable
+	 */
+	public function getRunClosure()
+	{
+		return function(LogEvent $event)
+		{
+			$entry = $event->getLogEntry();
+			$logLevel = $entry->getLogLevel();
+			
+			$callable = array($this->logger, $logLevel);
+			
+			if(is_callable($callable) === false)
+				throw new FlowException('Illegal log level. Must be one defined in ' . LogLevel::class);
+			
+			$this->logger->{$logLevel}($entry->getMessage(), $entry->getContext());
+		};
 	}
 }

@@ -26,6 +26,9 @@ class Flow
 	protected $weightIncrement = 10;
 
 	protected $errorHandler;
+	protected $exceptionHandler;
+	protected $handlePHPErrors = true;
+	protected $handleExceptions = true;
 
 	public function __construct()
 	{
@@ -35,6 +38,10 @@ class Flow
 				return;
 
 			$this->dispatch(new PHPErrorOccurredEvent($no, $message, $file, $line, $context));
+		};
+		
+		$this->exceptionHandler = function(\Exception $e) {
+			$this->dispatch(new ExceptionThrownEvent($e));	
 		};
 	}
 
@@ -163,12 +170,20 @@ class Flow
 			return ($a['weight'] < $b['weight']) ? -1 : 1;
 		});
 
-		$oldErrorHandler = set_error_handler($this->errorHandler);
+		if($this->handlePHPErrors === true)
+			set_error_handler($this->errorHandler);
 
+		if($this->handleExceptions === true)
+			set_exception_handler($this->exceptionHandler);
+		
 		$this->dispatch(new StartUpEvent());
 		$this->stop();
 
-		set_error_handler($oldErrorHandler);
+		if($this->handleExceptions === true)
+			restore_exception_handler();
+		
+		if($this->handlePHPErrors === true)
+			restore_error_handler();
 	}
 
 	/**
@@ -189,12 +204,11 @@ class Flow
 			if(in_array($reaction['event'], $eventClasses) === false)
 				continue;
 
-			try {
-				++$this->executedActions;
-				call_user_func($reaction['action']->getRunClosure(), $event);
-			} catch(\Exception $e) {
-				$this->dispatch(new ExceptionThrownEvent($e));
-			}
+			++$this->executedActions;
+			/** @var Action $action */
+			$action = $reaction['action'];
+			
+			call_user_func($action->getRunClosure(), $event);
 		}
 	}
 
@@ -234,5 +248,27 @@ class Flow
 	public function getDispatchedEvents()
 	{
 		return $this->dispatchedEvents;
+	}
+
+	/**
+	 * Defines if triggered PHP errors during the flow should be handled as {@see PHPErrorOccurredEvent}.
+	 * (Default is true)
+	 * 
+	 * @param boolean $handlePHPErrors
+	 */
+	public function handlePHPErrors($handlePHPErrors)
+	{
+		$this->handlePHPErrors = $handlePHPErrors;
+	}
+
+	/**
+	 * Defines if thrown exceptions during the flow should be handled as {@see ExceptionThrownEvent}.
+	 * (Default is true)
+	 * 
+	 * @param boolean $handleExceptions
+	 */
+	public function handleExceptions($handleExceptions)
+	{
+		$this->handleExceptions = $handleExceptions;
 	}
 }
