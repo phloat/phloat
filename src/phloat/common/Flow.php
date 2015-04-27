@@ -45,7 +45,16 @@ class Flow
 		};
 	}
 
-	protected function checkAndStoreAction($name, Action $action, $weight)
+	/**
+	 * Analyzes the Action object and stores it
+	 *
+	 * @param string $name
+	 * @param Action $action
+	 * @param int $weight
+	 *
+	 * @throws FlowException
+	 */
+	protected function analyzeAndStoreAction($name, Action $action, $weight)
 	{
 		$callable = $action->getRunClosure();
 
@@ -93,7 +102,7 @@ class Flow
 			$weight = $this->highestWeight = $this->highestWeight + $this->weightIncrement;
 		}
 
-		$this->checkAndStoreAction($name, $action, $weight);
+		$this->analyzeAndStoreAction($name, $action, $weight);
 
 		return $this;
 	}
@@ -113,7 +122,7 @@ class Flow
 		if(isset($this->reactions[$name]) === false)
 			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
 
-		$this->checkAndStoreAction($name, $action, $this->reactions[$name]['weight']);
+		$this->analyzeAndStoreAction($name, $action, $this->reactions[$name]['weight']);
 
 		return $this;
 	}
@@ -151,6 +160,22 @@ class Flow
 		$this->reactions[$name]['weight'] = $weight;
 
 		return $this;
+	}
+
+	/**
+	 * Returns an actions weight
+	 * 
+	 * @param string $name
+	 *
+	 * @return int
+	 * @throws FlowException
+	 */
+	public function getActionsWeight($name)
+	{
+		if(isset($this->reactions[$name]) === false)
+			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
+
+		return $this->reactions[$name]['weight'];
 	}
 
 	/**
