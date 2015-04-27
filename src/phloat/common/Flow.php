@@ -16,8 +16,7 @@ class Flow
 {
 	protected $reactions = array();
 	protected $eventTree = array();
-	protected $started = false;
-	protected $stopped = false;
+	protected $running = false;
 
 	protected $executedActions = 0;
 	protected $dispatchedEvents = 0;
@@ -183,10 +182,10 @@ class Flow
 	 */
 	public function start()
 	{
-		if($this->started === true)
+		if($this->running === true)
 			return;
 
-		$this->started = true;
+		$this->running = true;
 
 		uasort($this->reactions, function($a, $b) {
 			if($a['weight'] === $b['weight'])
@@ -220,7 +219,7 @@ class Flow
 	{
 		++$this->dispatchedEvents;
 
-		if($this->stopped === true)
+		if($this->running === false)
 			return;
 		
 		$eventClass = get_class($event);
@@ -257,7 +256,7 @@ class Flow
 	{
 		$this->dispatch(new ShutdownEvent());
 
-		$this->stopped = true;
+		$this->running = false;
 	}
 
 	/**
