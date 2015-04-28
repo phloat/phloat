@@ -233,7 +233,13 @@ class Flow
 			set_error_handler($this->errorHandler);
 
 		if($this->handleExceptions === true)
-			set_exception_handler($this->exceptionHandler);
+			set_exception_handler(function(\Exception $e) {
+				if($e instanceof FlowException)
+					throw $e;
+				
+				$eh = $this->exceptionHandler;
+				$eh($e);
+			});
 		
 		$this->dispatch(new StartUpEvent());
 		$this->stop();

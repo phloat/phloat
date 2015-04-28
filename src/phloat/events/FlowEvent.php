@@ -3,6 +3,8 @@
 namespace phloat\events;
 
 use phloat\common\Event;
+use phloat\common\Flow;
+use phloat\exceptions\FlowException;
 
 /**
  * @author Pascal Muenst <dev@timesplinter.ch>
@@ -10,5 +12,9 @@ use phloat\common\Event;
  */
 abstract class FlowEvent extends Event
 {
-
+	public function __construct()
+	{
+		if(($calledClass = debug_backtrace()[1]['class']) !== Flow::class && is_subclass_of($calledClass, Flow::class) === false)
+			throw new FlowException('This is an internal event and can only be called by the flow itself');
+	}
 }
