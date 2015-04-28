@@ -12,6 +12,8 @@ class ExceptionThrownEvent extends FlowEvent
 
 	public function __construct(\Exception $e)
 	{
+		parent::__construct();
+		
 		$this->exception = $e;
 	}
 

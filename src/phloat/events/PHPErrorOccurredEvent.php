@@ -16,6 +16,8 @@ class PHPErrorOccurredEvent extends FlowEvent
 
 	public function __construct($no, $message, $file, $line, array $context)
 	{
+		parent::__construct();
+		
 		$this->no = $no;
 		$this->message = $message;
 		$this->file = $file;
