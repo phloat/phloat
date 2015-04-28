@@ -21,9 +21,6 @@ class Flow
 	protected $executedActions = 0;
 	protected $dispatchedEvents = 0;
 
-	protected $highestWeight = 0;
-	protected $weightIncrement = 10;
-
 	protected $errorHandler;
 	protected $exceptionHandler;
 	protected $handlePHPErrors = true;
@@ -49,11 +46,10 @@ class Flow
 	 *
 	 * @param string $name
 	 * @param Action $action
-	 * @param int $weight
 	 *
 	 * @throws FlowException
 	 */
-	protected function analyzeAndStoreAction($name, Action $action, $weight)
+	protected function analyzeAction($name, Action $action)
 	{
 		$callable = $action->getRunClosure();
 
@@ -74,35 +70,75 @@ class Flow
 		if($eventClass->name !== Event::class && $eventClass->isSubclassOf(Event::class) === false)
 			throw new FlowException('Action ' . $name . ': The closure should consume a parameter of (sub-)type ' . Event::class . ' but does of type ' . $eventClass->name);
 
-		$action->setName($name);
-		$action->setFlow($this);
-
-		$this->reactions[$name] = array('event' => $eventClass->name, 'action' => $action, 'weight' => $weight);
-
 		if(isset($this->eventTree[$eventClass->name]) === false)
 			$this->eventTree[$eventClass->name] = $this->getParents($eventClass);
+		
+		return $eventClass->name;
 	}
 
 	/**
 	 * @param string $name Name of the action
 	 * @param Action $action The actual action
-	 * @param int $weight
 	 *
 	 * @return Flow $this The current flow instance
 	 *
 	 * @throws FlowException
 	 */
-	public function addAction($name, Action $action, $weight = 0)
+	public function addAction($name, Action $action)
 	{
 		if(isset($this->reactions[$name]) === true)
 			throw new FlowException('Action with name ' . $name . ' does already exist in this flow');
 
-		if($weight === 0) {
-			$weight = $this->highestWeight = $this->highestWeight + $this->weightIncrement;
-		}
+		$eventClassName = $this->analyzeAction($name, $action);
 
-		$this->analyzeAndStoreAction($name, $action, $weight);
+		$action->setName($name);
+		$action->setFlow($this);
 
+		$this->reactions[$name] = array('event' => $eventClassName, 'action' => $action);
+		
+		return $this;
+	}
+
+	protected function injectArrayEntry(array &$array, $pos, $entry, $key)
+	{		
+		$array = array_slice($array, 0, $pos, true) +
+		         array($key => $entry) +
+		         array_slice($array, $pos, count($array)-$pos, true);
+	}
+	
+	/**
+	 * @param string $name
+	 * @param Action $action
+	 * @param string $beforeActionName
+	 *
+	 * @return $this
+	 */
+	public function injectActionBefore($name, Action $action, $beforeActionName)
+	{
+		$pos = array_search($beforeActionName, array_keys($this->reactions));
+				
+		$eventClassName = $this->analyzeAction($name, $action);
+
+		$this->injectArrayEntry($this->reactions, $pos, array('event' => $eventClassName, 'action' => $action), $name);
+		
+		return $this;
+	}
+
+	/**
+	 * @param string $name
+	 * @param Action $action
+	 * @param string $afterActionName
+	 *
+	 * @return $this
+	 */
+	public function injectActionAfter($name, Action $action, $afterActionName)
+	{
+		$pos = array_search($afterActionName, array_keys($this->reactions)) + 1;
+
+		$eventClassName = $this->analyzeAction($name, $action);
+
+		$this->injectArrayEntry($this->reactions, $pos, array('event' => $eventClassName, 'action' => $action), $name);
+		
 		return $this;
 	}
 
@@ -121,7 +157,7 @@ class Flow
 		if(isset($this->reactions[$name]) === false)
 			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
 
-		$this->analyzeAndStoreAction($name, $action, $this->reactions[$name]['weight']);
+		$this->analyzeAction($name, $action, $this->reactions[$name]['weight']);
 
 		return $this;
 	}
@@ -186,13 +222,6 @@ class Flow
 			return;
 
 		$this->running = true;
-
-		uasort($this->reactions, function($a, $b) {
-			if($a['weight'] === $b['weight'])
-				return 0;
-
-			return ($a['weight'] < $b['weight']) ? -1 : 1;
-		});
 
 		if($this->handlePHPErrors === true)
 			set_error_handler($this->errorHandler);
