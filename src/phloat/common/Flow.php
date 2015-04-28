@@ -186,40 +186,6 @@ class Flow
 	}
 
 	/**
-	 * Re-weight an existing action
-	 *
-	 * @param string $name
-	 * @param int $weight
-	 * @return $this The current flow instance
-	 * @throws FlowException
-	 */
-	public function reWeightAction($name, $weight)
-	{
-		if(isset($this->reactions[$name]) === false)
-			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
-
-		$this->reactions[$name]['weight'] = $weight;
-
-		return $this;
-	}
-
-	/**
-	 * Returns an actions weight
-	 * 
-	 * @param string $name
-	 *
-	 * @return int
-	 * @throws FlowException
-	 */
-	public function getActionsWeight($name)
-	{
-		if(isset($this->reactions[$name]) === false)
-			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
-
-		return $this->reactions[$name]['weight'];
-	}
-
-	/**
 	 * Starts the flow
 	 */
 	public function start()
