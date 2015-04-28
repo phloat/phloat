@@ -77,6 +77,8 @@ class Flow
 	}
 
 	/**
+	 * Add an action to the end of the flow
+	 * 
 	 * @param string $name Name of the action
 	 * @param Action $action The actual action
 	 *
@@ -107,8 +109,10 @@ class Flow
 	}
 	
 	/**
-	 * @param string $name
-	 * @param Action $action
+	 * Inject an action before another one in the flow
+	 * 
+	 * @param string $name Name of the action
+	 * @param Action $action The actual action
 	 * @param string $beforeActionName
 	 *
 	 * @return $this
@@ -125,8 +129,10 @@ class Flow
 	}
 
 	/**
-	 * @param string $name
-	 * @param Action $action
+	 * Inject an action after another one in the flow
+	 * 
+	 * @param string $name Name of the action
+	 * @param Action $action The actual action
 	 * @param string $afterActionName
 	 *
 	 * @return $this
