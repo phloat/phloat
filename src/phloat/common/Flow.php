@@ -6,6 +6,7 @@ use phloat\events\PHPErrorOccurredEvent;
 use phloat\events\StartUpEvent;
 use phloat\events\ShutdownEvent;
 use phloat\events\ExceptionThrownEvent;
+use phloat\exceptions\FlowConstructionException;
 use phloat\exceptions\FlowException;
 
 /**
@@ -58,17 +59,17 @@ class Flow
 		} elseif(is_array($callable) === true && is_callable($callable) === true) {
 			$refFunc = new \ReflectionMethod($callable[0], $callable[1]);
 		} else {
-			throw new FlowException('Action ' . $name . ': No valid callback');
+			throw new FlowConstructionException('Action ' . $name . ': No valid callback');
 		}
 
 		if(($paramCount = count(($params = $refFunc->getParameters()))) !== 1) {
-			throw new FlowException('Action ' . $name . ': The closure has to consume exactly 1 parameter (' . $paramCount . ' given)');
+			throw new FlowConstructionException('Action ' . $name . ': The closure has to consume exactly 1 parameter (' . $paramCount . ' given)');
 		}
 
 		$eventClass = $refFunc->getParameters()[0]->getClass();
 
 		if($eventClass->name !== Event::class && $eventClass->isSubclassOf(Event::class) === false)
-			throw new FlowException('Action ' . $name . ': The closure should consume a parameter of (sub-)type ' . Event::class . ' but does of type ' . $eventClass->name);
+			throw new FlowConstructionException('Action ' . $name . ': The closure should consume a parameter of (sub-)type ' . Event::class . ' but does of type ' . $eventClass->name);
 
 		if(isset($this->eventTree[$eventClass->name]) === false)
 			$this->eventTree[$eventClass->name] = $this->getParents($eventClass);
@@ -89,7 +90,7 @@ class Flow
 	public function addAction($name, Action $action)
 	{
 		if(isset($this->reactions[$name]) === true)
-			throw new FlowException('Action with name ' . $name . ' does already exist in this flow');
+			throw new FlowConstructionException('Action with name ' . $name . ' does already exist in this flow');
 
 		$eventClassName = $this->analyzeAction($name, $action);
 
@@ -161,7 +162,7 @@ class Flow
 	public function replaceAction($name, Action $action)
 	{
 		if(isset($this->reactions[$name]) === false)
-			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
+			throw new FlowConstructionException('Action with name ' . $name . ' does not exist in this flow');
 
 		$this->analyzeAction($name, $action, $this->reactions[$name]['weight']);
 
@@ -178,7 +179,7 @@ class Flow
 	public function removeAction($name)
 	{
 		if(isset($this->reactions[$name]) === false)
-			throw new FlowException('Action with name ' . $name . ' does not exist in this flow');
+			throw new FlowConstructionException('Action with name ' . $name . ' does not exist in this flow');
 
 		unset($this->reactions[$name]);
 
