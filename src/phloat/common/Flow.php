@@ -50,10 +50,10 @@ class Flow
 	 * @param Action $action
 	 *
 	 * @param Bind $bind
-	 * @return string
+	 * @return string[]
 	 * @throws FlowConstructionException
 	 */
-	protected function analyzeAction($name, Action $action, Bind $bind)
+	protected function analyzeAndGetBinds($name, Action $action, Bind $bind)
 	{
 		$callable = $action->getRunClosure();
 
@@ -74,10 +74,18 @@ class Flow
 		if($eventClass->name !== Event::class && $eventClass->isSubclassOf(Event::class) === false)
 			throw new FlowConstructionException('Action ' . $name . ': The closure should consume a parameter of (sub-)type ' . Event::class . ' but does of type ' . $eventClass->name);
 
-		if(isset($this->eventTree[$eventClass->name]) === false)
-			$this->eventTree[$eventClass->name] = $this->getParents($eventClass);
-		
-		return $eventClass->name;
+		$possibleEvents = $this->getParents($eventClass);
+
+		$bindEvents = array();
+
+		foreach($possibleEvents as $event) {
+			if($bind->bindsTo($event) === false)
+				continue;
+
+			$bindEvents[] = $event;
+		}
+
+		return $bindEvents;
 	}
 
 	/**
@@ -96,10 +104,10 @@ class Flow
 		if(isset($this->reactions[$name]) === true)
 			throw new FlowConstructionException('Action with name ' . $name . ' does already exist in this flow');
 
-		$eventClassName = $this->analyzeAction($name, $action, $bind);
-
 		$action->setName($name);
 		$action->setFlow($this);
+
+		$eventClassName = $this->analyzeAndGetBinds($name, $action, $bind);
 
 		$this->reactions[$name] = array('event' => $eventClassName, 'action' => $action);
 		
@@ -128,7 +136,7 @@ class Flow
 	{
 		$pos = array_search($beforeActionName, array_keys($this->reactions));
 				
-		$eventClassName = $this->analyzeAction($name, $action, $bind);
+		$eventClassName = $this->analyzeAndGetBinds($name, $action, $bind);
 
 		$this->injectArrayEntry($this->reactions, $pos, array('event' => $eventClassName, 'action' => $action), $name);
 		
@@ -150,7 +158,7 @@ class Flow
 	{
 		$pos = array_search($afterActionName, array_keys($this->reactions)) + 1;
 
-		$eventClassName = $this->analyzeAction($name, $action, $bind);
+		$eventClassName = $this->analyzeAndGetBinds($name, $action, $bind);
 
 		$this->injectArrayEntry($this->reactions, $pos, array('event' => $eventClassName, 'action' => $action), $name);
 		
@@ -172,7 +180,7 @@ class Flow
 		if(isset($this->reactions[$name]) === false)
 			throw new FlowConstructionException('Action with name ' . $name . ' does not exist in this flow');
 
-		$this->analyzeAction($name, $action, $this->reactions[$name]['weight']);
+		$this->analyzeAndGetBinds($name, $action, $this->reactions[$name]['weight']);
 
 		return $this;
 	}
