@@ -2,6 +2,7 @@
 
 namespace phloat\common;
 
+use phloat\binds\Bind;
 use phloat\events\PHPErrorOccurredEvent;
 use phloat\events\StartUpEvent;
 use phloat\events\ShutdownEvent;
@@ -48,9 +49,11 @@ class Flow
 	 * @param string $name
 	 * @param Action $action
 	 *
-	 * @throws FlowException
+	 * @param Bind $bind
+	 * @return string
+	 * @throws FlowConstructionException
 	 */
-	protected function analyzeAction($name, Action $action)
+	protected function analyzeAction($name, Action $action, Bind $bind)
 	{
 		$callable = $action->getRunClosure();
 
@@ -79,20 +82,21 @@ class Flow
 
 	/**
 	 * Add an action to the end of the flow
-	 * 
+	 *
 	 * @param string $name Name of the action
 	 * @param Action $action The actual action
+	 * @param Bind $bind
 	 *
 	 * @return Flow $this The current flow instance
 	 *
-	 * @throws FlowException
+	 * @throws FlowConstructionException
 	 */
-	public function addAction($name, Action $action)
+	public function addAction($name, Action $action, Bind $bind = null)
 	{
 		if(isset($this->reactions[$name]) === true)
 			throw new FlowConstructionException('Action with name ' . $name . ' does already exist in this flow');
 
-		$eventClassName = $this->analyzeAction($name, $action);
+		$eventClassName = $this->analyzeAction($name, $action, $bind);
 
 		$action->setName($name);
 		$action->setFlow($this);
@@ -108,21 +112,23 @@ class Flow
 		         array($key => $entry) +
 		         array_slice($array, $pos, count($array)-$pos, true);
 	}
-	
+
 	/**
 	 * Inject an action before another one in the flow
-	 * 
+	 *
 	 * @param string $name Name of the action
 	 * @param Action $action The actual action
 	 * @param string $beforeActionName
+	 * @param Bind $bind
 	 *
 	 * @return $this
+	 * @throws FlowConstructionException
 	 */
-	public function injectActionBefore($name, Action $action, $beforeActionName)
+	public function injectActionBefore($name, Action $action, $beforeActionName, Bind $bind = null)
 	{
 		$pos = array_search($beforeActionName, array_keys($this->reactions));
 				
-		$eventClassName = $this->analyzeAction($name, $action);
+		$eventClassName = $this->analyzeAction($name, $action, $bind);
 
 		$this->injectArrayEntry($this->reactions, $pos, array('event' => $eventClassName, 'action' => $action), $name);
 		
@@ -131,18 +137,20 @@ class Flow
 
 	/**
 	 * Inject an action after another one in the flow
-	 * 
+	 *
 	 * @param string $name Name of the action
 	 * @param Action $action The actual action
 	 * @param string $afterActionName
+	 * @param Bind $bind
 	 *
 	 * @return $this
+	 * @throws FlowConstructionException
 	 */
-	public function injectActionAfter($name, Action $action, $afterActionName)
+	public function injectActionAfter($name, Action $action, $afterActionName, Bind $bind = null)
 	{
 		$pos = array_search($afterActionName, array_keys($this->reactions)) + 1;
 
-		$eventClassName = $this->analyzeAction($name, $action);
+		$eventClassName = $this->analyzeAction($name, $action, $bind);
 
 		$this->injectArrayEntry($this->reactions, $pos, array('event' => $eventClassName, 'action' => $action), $name);
 		
