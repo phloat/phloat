@@ -30,7 +30,7 @@ class Flow
 	protected $exceptionHandler;
 	protected $handlePHPErrors = true;
 	protected $handleExceptions = true;
-	
+
 	protected $defaultBind;
 
 	public function __construct()
@@ -42,11 +42,11 @@ class Flow
 
 			$this->dispatch(new PHPErrorOccurredEvent($no, $message, $file, $line, $context));
 		};
-		
+
 		$this->exceptionHandler = function(\Exception $e) {
-			$this->dispatch(new ExceptionThrownEvent($e));	
+			$this->dispatch(new ExceptionThrownEvent($e));
 		};
-		
+
 		$this->defaultBind = new BindAny();
 	}
 
@@ -57,7 +57,7 @@ class Flow
 	 * @param Action $action
 	 *
 	 * @param Bind $bind
-	 * @return string[]
+	 * @return string
 	 * @throws FlowConstructionException
 	 */
 	protected function analyzeAndGetBinds($name, Action $action, Bind $bind)
@@ -84,7 +84,7 @@ class Flow
 		$possibleEvents = isset($this->eventTree[$eventClass->name]) ? $this->eventTree[$eventClass->name] : ($this->eventTree[$eventClass->name] = $this->getParents($eventClass));
 
 		$bindEvents = array();
-		
+
 		foreach($possibleEvents as $event) {
 			if($bind->bindsTo($event) === false)
 				continue;
@@ -92,7 +92,7 @@ class Flow
 			$bindEvents[] = $event;
 		}
 
-		return $bindEvents;
+		return $eventClass->name;
 	}
 
 	/**
@@ -114,17 +114,15 @@ class Flow
 		$action->setName($name);
 		$action->setFlow($this);
 
-		$eventBinds = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
+		$eventBind = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
 
-		foreach($eventBinds as $eventBind) {
-			$this->reactions[$eventBind][$name] = $action;
-		}
-		
+		$this->reactions[$eventBind][$name] = $action;
+
 		return $this;
 	}
 
 	protected function injectArrayEntry(array &$array, $pos, $entry, $key)
-	{		
+	{
 		$array = array_slice($array, 0, $pos, true) +
 		         array($key => $entry) +
 		         array_slice($array, $pos, count($array)-$pos, true);
@@ -145,15 +143,13 @@ class Flow
 	{
 		$pos = array_search($beforeActionName, array_keys($this->reactions));
 
-		$eventBinds = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
+		$eventBind = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
 
-		foreach($eventBinds as $eventBind) {
-			if(isset($this->reactions[$eventBind]) === false)
-				$this->addAction($name, $action, $bind);
-			else
-				$this->injectArrayEntry($this->reactions[$eventBind], $pos, $action, $name);
-		}
-				
+		if(isset($this->reactions[$eventBind]) === false)
+			$this->reactions[$eventBind][$name] = $action;
+		else
+			$this->injectArrayEntry($this->reactions[$eventBind], $pos, $action, $name);
+
 		return $this;
 	}
 
@@ -172,15 +168,13 @@ class Flow
 	{
 		$pos = array_search($afterActionName, array_keys($this->reactions)) + 1;
 
-		$eventBinds = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
+		$eventBind = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
 
-		foreach($eventBinds as $eventBind) {
-			if(isset($this->reactions[$eventBind]) === false)
-				$this->addAction($name, $action, $bind);
-			else
-				$this->injectArrayEntry($this->reactions[$eventBind], $pos, $action, $name);
-		}
-		
+		if(isset($this->reactions[$eventBind]) === false)
+			$this->reactions[$eventBind][$name] = $action;
+		else
+			$this->injectArrayEntry($this->reactions[$eventBind], $pos, $action, $name);
+
 		return $this;
 	}
 
@@ -238,17 +232,17 @@ class Flow
 			set_exception_handler(function(\Exception $e) {
 				if($e instanceof FlowException)
 					throw $e;
-				
+
 				$eh = $this->exceptionHandler;
 				$eh($e);
 			});
-		
+
 		$this->dispatch(new StartUpEvent());
 		$this->stop();
 
 		if($this->handleExceptions === true)
 			restore_exception_handler();
-		
+
 		if($this->handlePHPErrors === true)
 			restore_error_handler();
 	}
@@ -264,17 +258,21 @@ class Flow
 
 		if($this->running === false)
 			return;
-		
-		$eventClass = get_class($event);
 
-		if(isset($this->reactions[$eventClass]) === false)
-			return;
-		
-		foreach($this->reactions[$eventClass] as $name => $action) {
-			++$this->executedActions;
-			
-			/** @var Action $action */
-			call_user_func($action->getRunClosure(), $event);
+		$eventClass = get_class($event);
+		$eventClasses = isset($this->eventTree[$eventClass]) ? $this->eventTree[$eventClass] : array();
+
+		foreach($eventClasses as $eventClass) {
+			if(isset($this->reactions[$eventClass]) === false) {
+				continue;
+			}
+
+			foreach($this->reactions[$eventClass] as $name => $action) {
+				++$this->executedActions;
+
+				/** @var Action $action */
+				call_user_func($action->getRunClosure(), $event);
+			}
 		}
 	}
 
@@ -319,7 +317,7 @@ class Flow
 	/**
 	 * Defines if triggered PHP errors during the flow should be handled as {@see PHPErrorOccurredEvent}.
 	 * (Default is true)
-	 * 
+	 *
 	 * @param boolean $handlePHPErrors
 	 */
 	public function handlePHPErrors($handlePHPErrors)
@@ -330,7 +328,7 @@ class Flow
 	/**
 	 * Defines if thrown exceptions during the flow should be handled as {@see ExceptionThrownEvent}.
 	 * (Default is true)
-	 * 
+	 *
 	 * @param boolean $handleExceptions
 	 */
 	public function handleExceptions($handleExceptions)
