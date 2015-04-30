@@ -84,9 +84,6 @@ class Flow
 		$possibleEvents = isset($this->eventTree[$eventClass->name]) ? $this->eventTree[$eventClass->name] : ($this->eventTree[$eventClass->name] = $this->getParents($eventClass));
 
 		$bindEvents = array();
-
-		if($bind === null)
-			$bind = $this->defaultBind;
 		
 		foreach($possibleEvents as $event) {
 			if($bind->bindsTo($event) === false)
@@ -117,7 +114,7 @@ class Flow
 		$action->setName($name);
 		$action->setFlow($this);
 
-		$eventBinds = $this->analyzeAndGetBinds($name, $action, $bind);
+		$eventBinds = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
 
 		foreach($eventBinds as $eventBind) {
 			$this->reactions[$eventBind][$name] = $action;
@@ -148,7 +145,7 @@ class Flow
 	{
 		$pos = array_search($beforeActionName, array_keys($this->reactions));
 
-		$eventBinds = $this->analyzeAndGetBinds($name, $action, $bind);
+		$eventBinds = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
 
 		foreach($eventBinds as $eventBind) {
 			$this->injectArrayEntry($this->reactions[$eventBind], $pos, $action, $name);
@@ -172,7 +169,7 @@ class Flow
 	{
 		$pos = array_search($afterActionName, array_keys($this->reactions)) + 1;
 
-		$eventBinds = $this->analyzeAndGetBinds($name, $action, $bind);
+		$eventBinds = $this->analyzeAndGetBinds($name, $action, ($bind === null) ? $this->defaultBind : $bind);
 
 		foreach($eventBinds as $eventBind) {
 			$this->injectArrayEntry($this->reactions[$eventBind], $pos, $action, $name);
