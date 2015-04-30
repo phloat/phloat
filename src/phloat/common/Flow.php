@@ -3,6 +3,7 @@
 namespace phloat\common;
 
 use phloat\binds\Bind;
+use phloat\binds\BindAny;
 use phloat\events\PHPErrorOccurredEvent;
 use phloat\events\StartUpEvent;
 use phloat\events\ShutdownEvent;
@@ -16,7 +17,9 @@ use phloat\exceptions\FlowException;
  */
 class Flow
 {
+	/** @var array[] */
 	protected $reactions = array();
+	/** @var string[] */
 	protected $eventTree = array();
 	protected $running = false;
 
@@ -27,6 +30,8 @@ class Flow
 	protected $exceptionHandler;
 	protected $handlePHPErrors = true;
 	protected $handleExceptions = true;
+	
+	protected $defaultBind;
 
 	public function __construct()
 	{
@@ -41,6 +46,8 @@ class Flow
 		$this->exceptionHandler = function(\Exception $e) {
 			$this->dispatch(new ExceptionThrownEvent($e));	
 		};
+		
+		$this->defaultBind = new BindAny();
 	}
 
 	/**
@@ -74,10 +81,13 @@ class Flow
 		if($eventClass->name !== Event::class && $eventClass->isSubclassOf(Event::class) === false)
 			throw new FlowConstructionException('Action ' . $name . ': The closure should consume a parameter of (sub-)type ' . Event::class . ' but does of type ' . $eventClass->name);
 
-		$possibleEvents = $this->getParents($eventClass);
+		$possibleEvents = isset($this->eventTree[$eventClass->name]) ? $this->eventTree[$eventClass->name] : ($this->eventTree[$eventClass->name] = $this->getParents($eventClass));
 
 		$bindEvents = array();
 
+		if($bind === null)
+			$bind = $this->defaultBind;
+		
 		foreach($possibleEvents as $event) {
 			if($bind->bindsTo($event) === false)
 				continue;
@@ -107,9 +117,11 @@ class Flow
 		$action->setName($name);
 		$action->setFlow($this);
 
-		$eventClassName = $this->analyzeAndGetBinds($name, $action, $bind);
+		$eventBinds = $this->analyzeAndGetBinds($name, $action, $bind);
 
-		$this->reactions[$name] = array('event' => $eventClassName, 'action' => $action);
+		foreach($eventBinds as $eventBind) {
+			$this->reactions[$eventBind][$name] = $action;
+		}
 		
 		return $this;
 	}
@@ -135,11 +147,13 @@ class Flow
 	public function injectActionBefore($name, Action $action, $beforeActionName, Bind $bind = null)
 	{
 		$pos = array_search($beforeActionName, array_keys($this->reactions));
-				
-		$eventClassName = $this->analyzeAndGetBinds($name, $action, $bind);
 
-		$this->injectArrayEntry($this->reactions, $pos, array('event' => $eventClassName, 'action' => $action), $name);
-		
+		$eventBinds = $this->analyzeAndGetBinds($name, $action, $bind);
+
+		foreach($eventBinds as $eventBind) {
+			$this->injectArrayEntry($this->reactions[$eventBind], $pos, $action, $name);
+		}
+				
 		return $this;
 	}
 
@@ -158,9 +172,11 @@ class Flow
 	{
 		$pos = array_search($afterActionName, array_keys($this->reactions)) + 1;
 
-		$eventClassName = $this->analyzeAndGetBinds($name, $action, $bind);
+		$eventBinds = $this->analyzeAndGetBinds($name, $action, $bind);
 
-		$this->injectArrayEntry($this->reactions, $pos, array('event' => $eventClassName, 'action' => $action), $name);
+		foreach($eventBinds as $eventBind) {
+			$this->injectArrayEntry($this->reactions[$eventBind], $pos, $action, $name);
+		}
 		
 		return $this;
 	}
@@ -247,16 +263,11 @@ class Flow
 			return;
 		
 		$eventClass = get_class($event);
-		$eventClasses = isset($this->eventTree[$eventClass]) ? $this->eventTree[$eventClass] : array();
 
-		foreach($this->reactions as $reaction) {
-			if(in_array($reaction['event'], $eventClasses) === false)
-				continue;
-
+		foreach($this->reactions[$eventClass] as $name => $action) {
 			++$this->executedActions;
-			/** @var Action $action */
-			$action = $reaction['action'];
 			
+			/** @var Action $action */
 			call_user_func($action->getRunClosure(), $event);
 		}
 	}

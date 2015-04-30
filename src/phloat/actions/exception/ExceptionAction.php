@@ -16,6 +16,8 @@ class ExceptionAction extends Action
 	{
 		return function(ExceptionThrownEvent $event) {
 			echo 'Flow terminated with exception "' . $event->getException()->getMessage() . '"', PHP_EOL;
+			
+			$this->flow->stop();
 		};
 	}
 }
